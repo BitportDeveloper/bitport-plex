@@ -1,7 +1,7 @@
-import putio2
+import bitport
 
 
-NAME = 'Put.io'
+NAME = 'Bitport'
 
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
@@ -18,12 +18,12 @@ def Start():
     DirectoryItem.thumb = R(ICON)
 
 
-@handler('/video/putio', NAME, art = ART, thumb = ICON)
+@handler('/video/bitport', NAME, art = ART, thumb = ICON)
 def MainMenu():
     return ParseDirectory(0, NAME)
 
 
-@route('/video/putio/directory/{id}')
+@route('/video/bitport/directory/{id}')
 def ParseDirectory(id, name):
     oc = ObjectContainer(title1 = name, view_group = 'InfoList')
 
@@ -34,70 +34,54 @@ def ParseDirectory(id, name):
         Log.Info("login olunmamis hic!")
         return ObjectContainer(header="Login", message="Enter your access token in Preferences.")
 
-    client = putio2.Client(token)
+    client = bitport.Client(token)
 
 
     try:
         for f in client.File.list(id):
-            if f.content_type == 'application/x-directory':
+            if isinstance(f, client.Directory):
                 oc.add(DirectoryObject(
                     key = Callback(ParseDirectory, id = f.id, name = f.name),
                     title = f.name))
             
-            elif f.content_type.startswith('video/'):
+            elif f.video:
                 oc.add(VideoClipObject(
                     key = Callback(Lookup, id = f.id),
                     items = [ MediaObject(parts = [ PartObject(key = Callback(PlayMedia, url = f.stream_url)) ]) ],
                     rating_key = f.id,
                     title = f.name,
-                    thumb = f.screenshot))
-            
-            elif f.content_type.startswith('audio/'):
-                oc.add(TrackObject(
-                    key = Callback(Lookup, id = f.id),
-                    items = [ MediaObject(parts = [ PartObject(key = Callback(PlayMedia, url = f.stream_url)) ]) ],
-                    rating_key = f.id,
-                    title = f.name,
-                    thumb = f.screenshot))
+                    thumb = None))
             
             else:
-                Log.Info("Unsupported content type '%s'" % f.content_type)
+                Log.Info("Unsupported file: '%s'" % f.name)
     except:
         Log.Exception("Files couldn't fetch. Access token is wrong or missing.")
 
     return oc
 
 
-@route('/video/putio/lookup')
+@route('/video/bitport/lookup')
 def Lookup(id):
     oc = ObjectContainer()
-    id = int(id)
+#    uid = abs(hash(id))
     
-    client = putio2.Client(Prefs['access_token'])
+    client = bitport.Client(Prefs['access_token'])
     f = client.File.get(id)
     
-    if f.content_type.startswith('video/'):
+    if f.video:
         oc.add(VideoClipObject(
             key = Callback(Lookup, id = f.id),
             items = [ MediaObject(parts = [ PartObject(key = Callback(PlayMedia, url = f.stream_url)) ]) ],
             rating_key = f.id,
             title = f.name,
-            thumb = f.screenshot))
-    
-    elif f.content_type.startswith('audio/'):
-        oc.add(TrackObject(
-            key = Callback(Lookup, id = f.id),
-            items = [ MediaObject(parts = [ PartObject(key = Callback(PlayMedia, url = f.stream_url)) ]) ],
-            rating_key = f.id,
-            title = f.name,
-            thumb = f.screenshot))
+            thumb = None))
     
     else:
-        Log.Info("Unsupported content type '%s'" % f.content_type)
+        Log.Info("Unsupported file: '%s'" % f.name)
     
     return oc
 
 
-@route('/video/putio/play')
+@route('/video/bitport/play')
 def PlayMedia(url):
     return Redirect(url)
